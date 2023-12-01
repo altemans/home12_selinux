@@ -431,4 +431,32 @@ ns01.dns.lab.           3600    IN      A       192.168.50.10
 </details>
 
 
+<details>
+  <summary>итоги</summary>
+
+Проблема заключалась в том, что администратор использовал нестандартный каталог для конфигурации сервера. Стандартным каталогом является /var/named. Selinux считает это нарушением политики безопасности и блокирует работу сервиса.  
+Для исправления ситуации можно  
+ * использовать каталог по умолчанию для настройки
+ * изменить контекст безопасности на каталоге /etc/named
+ * создать кастомные политики
+
+ Для исправления можно попробовать создать политику на основе ошибок в логе
+
+```
+[root@ns01 ~]# cat /var/log/audit/audit.log | audit2why 
+type=AVC msg=audit(1701454980.349:1946): avc:  denied  { create } for  pid=5176 comm="isc-worker0000" name="named.ddns.lab.view1.jnl" scontext=system_u:system_r:named_t:s0 tcontext=system_u:object_r:etc_t:s0 tclass=file permissive=0
+
+        Was caused by:
+                Missing type enforcement (TE) allow rule.
+
+                You can use audit2allow to generate a loadable module to allow this access.
+```
+
+ grep isc-worker0000 /var/log/audit/audit.log | audit2allow -M named_etc_policy  
+ semodule -i named_etc_policy.pp  
+  
+ что не приводит к положительному результату, а добавляет дополнительные ошибки, в итоге, можем в автоматическом режиме наклепать кучу политик и получить мусорку, которую будем долго разгребать, поэтому считаю правильным либо поменять контекст на каталоге /etc/named, либо перенести все в каталог по умолчанию /var/named и поправить конфиги named
+
+</details>
+
 </details>
